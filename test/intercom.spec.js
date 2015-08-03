@@ -12,6 +12,8 @@ describe('intercom', function () {
         fetchAccountMetadata = _fetchAccountMetadata_;
         activeUserHasPermission = _activeUserHasPermission_;
 
+        config.namespace = 'namespace';
+
         intercom = jasmine.createSpy('Intercom');
     }));
 
@@ -81,6 +83,11 @@ describe('intercom', function () {
                             app_id: config.intercomAppId,
                             email: metadata.email,
                             user_id: metadata.email,
+                            company: {
+                                id: config.namespace,
+                                name: config.namespace,
+                                url: 'http://server'
+                            },
                             widget: {
                                 activator: "#IntercomDefaultWidget"
                             }
@@ -142,6 +149,11 @@ describe('intercom', function () {
                                 app_id: config.intercomAppId,
                                 email: metadata.email,
                                 user_id: metadata.email,
+                                company: {
+                                    id: config.namespace,
+                                    name: config.namespace,
+                                    url: 'http://server'
+                                },
                                 widget: {
                                     activator: "#IntercomDefaultWidget"
                                 }

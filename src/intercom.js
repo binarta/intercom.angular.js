@@ -1,11 +1,11 @@
 (function () {
     angular.module('intercom', ['angularx', 'checkpoint', 'config'])
-        .service('intercomRunner', ['$rootScope', '$window', '$timeout', 'resourceLoader', 'config', 'activeUserHasPermission', 'fetchAccountMetadata', IntercomRunner])
+        .service('intercomRunner', ['$rootScope', '$window', '$location', '$timeout', 'resourceLoader', 'config', 'activeUserHasPermission', 'fetchAccountMetadata', IntercomRunner])
         .run(['intercomRunner', function (intercomRunner) {
             intercomRunner.run();
         }]);
 
-    function IntercomRunner($rootScope, $window, $timeout, resourceLoader, config, activeUserHasPermission, fetchAccountMetadata) {
+    function IntercomRunner($rootScope, $window, $location, $timeout, resourceLoader, config, activeUserHasPermission, fetchAccountMetadata) {
         this.run = function () {
             if(!config.intercomAppId) return;
 
@@ -40,6 +40,11 @@
                             app_id: config.intercomAppId,
                             email: metadata.email,
                             user_id: metadata.email,
+                            company: {
+                                id: config.namespace,
+                                name: config.namespace,
+                                url: getCompanyUrl()
+                            },
                             widget: {
                                 activator: "#IntercomDefaultWidget"
                             }
@@ -55,6 +60,15 @@
                     },
                     scope: $rootScope
                 });
+            }
+
+            function getCompanyUrl() {
+                return $location.protocol() + '://' + $location.host() + getPortExt();
+
+                function getPortExt() {
+                    var port = $location.port();
+                    return port == '80' ? '' : ':' + port;
+                }
             }
         };
     }
