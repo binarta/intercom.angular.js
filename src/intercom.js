@@ -63,12 +63,7 @@
             }
 
             function getCompanyUrl() {
-                return $location.protocol() + '://' + $location.host() + getPortExt();
-
-                function getPortExt() {
-                    var port = $location.port();
-                    return port == '80' ? '' : ':' + port;
-                }
+                return $location.protocol() + '://' + $location.host();
             }
         };
     }
