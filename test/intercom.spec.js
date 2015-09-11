@@ -128,7 +128,7 @@ describe('intercom', function () {
                             fetchAccountMetadata.calls[0].args[0].unauthorized();
                         });
 
-                        it('boot Intercom', function () {
+                        it('Intercom is shut down', function () {
                             expect(intercom).toHaveBeenCalledWith('shutdown');
                             expect(intercom).not.toHaveBeenCalledWith('boot');
                         });
@@ -158,6 +158,17 @@ describe('intercom', function () {
                                     activator: "#IntercomDefaultWidget"
                                 }
                             });
+                        });
+                    });
+
+                    describe('and somehow user loses permission (e.g. clerk logs out and logs in with other user in same session)', function () {
+                        beforeEach(function () {
+                            activeUserHasPermission.calls[0].args[0].no();
+                            fetchAccountMetadata.calls[0].args[0].ok();
+                        });
+
+                        it('Intercom is not booted', function () {
+                            expect(intercom).not.toHaveBeenCalledWith('boot');
                         });
                     });
                 });
