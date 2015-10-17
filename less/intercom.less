@@ -2,8 +2,8 @@
   z-index: 1034 !important;
 }
 
-@media (min-width: 768px) {
-  body:not(.mobile).bin-menu {
+body.bin-menu {
+  &:not(.mobile), &.tablet {
     #intercom-container .intercom-sheet {
       top: 40px !important;
       height: auto !important;
