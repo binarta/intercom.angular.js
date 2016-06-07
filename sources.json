@@ -1,0 +1,5 @@
+{
+  "default": {
+    "intercom": "bower_components/binarta.intercom.angular/src/intercom.js"
+  }
+}

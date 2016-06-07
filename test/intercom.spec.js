@@ -57,7 +57,7 @@ describe('intercom', function () {
 
                 describe('and user is unauthorized', function () {
                     beforeEach(function () {
-                        fetchAccountMetadata.calls[0].args[0].unauthorized();
+                        fetchAccountMetadata.calls.first().args[0].unauthorized();
                     });
 
                     it('boot Intercom', function () {
@@ -74,7 +74,7 @@ describe('intercom', function () {
                     };
 
                     beforeEach(function () {
-                        fetchAccountMetadata.calls[0].args[0].ok(metadata);
+                        fetchAccountMetadata.calls.first().args[0].ok(metadata);
                     });
 
                     it('boot Intercom with user', function () {
@@ -103,12 +103,12 @@ describe('intercom', function () {
             });
 
             it('active user needs edit.mode permission', function () {
-                expect(activeUserHasPermission.calls[0].args[1]).toEqual('edit.mode');
+                expect(activeUserHasPermission.calls.first().args[1]).toEqual('edit.mode');
             });
 
             describe('and active user has permission', function () {
                 beforeEach(function () {
-                    activeUserHasPermission.calls[0].args[0].yes();
+                    activeUserHasPermission.calls.first().args[0].yes();
                 });
 
                 it('script is injected', function () {
@@ -125,7 +125,7 @@ describe('intercom', function () {
 
                     describe('and user is unauthorized', function () {
                         beforeEach(function () {
-                            fetchAccountMetadata.calls[0].args[0].unauthorized();
+                            fetchAccountMetadata.calls.first().args[0].unauthorized();
                         });
 
                         it('Intercom is shut down', function () {
@@ -140,7 +140,7 @@ describe('intercom', function () {
                         };
 
                         beforeEach(function () {
-                            fetchAccountMetadata.calls[0].args[0].ok(metadata);
+                            fetchAccountMetadata.calls.first().args[0].ok(metadata);
                         });
 
                         it('boot Intercom with user', function () {
@@ -163,8 +163,8 @@ describe('intercom', function () {
 
                     describe('and somehow user loses permission (e.g. clerk logs out and logs in with other user in same session)', function () {
                         beforeEach(function () {
-                            activeUserHasPermission.calls[0].args[0].no();
-                            fetchAccountMetadata.calls[0].args[0].ok();
+                            activeUserHasPermission.calls.first().args[0].no();
+                            fetchAccountMetadata.calls.first().args[0].ok();
                         });
 
                         it('Intercom is not booted', function () {
