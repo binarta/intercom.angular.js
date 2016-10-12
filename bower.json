@@ -2,7 +2,6 @@
   "name": "binarta.intercom.angular",
   "main": [
     "./src/intercom.js",
-    "./less/intercom.less",
     "./sources.json"
   ],
   "dependencies": {
