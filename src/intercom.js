@@ -1,58 +1,46 @@
 (function () {
-    angular.module('intercom', ['angularx', 'checkpoint', 'config'])
-        .service('intercomRunner', ['$rootScope', '$window', '$location', '$timeout', 'resourceLoader', 'config', 'activeUserHasPermission', 'fetchAccountMetadata', IntercomRunner])
-        .run(['intercomRunner', function (intercomRunner) {
-            intercomRunner.run();
-        }]);
+    angular.module('intercom', ['angularx', 'config', 'binarta-checkpointjs-angular1'])
+        .factory('intercom', ['$window', '$location', 'resourceLoader', 'config', 'binarta', IntercomFactory])
+        .run(['intercom', function (intercom) {intercom()}]);
 
-    function IntercomRunner($rootScope, $window, $location, $timeout, resourceLoader, config, activeUserHasPermission, fetchAccountMetadata) {
-        this.run = function () {
+    function IntercomFactory($window, $location, resourceLoader, config, binarta) {
+        return function () {
             if (!config.intercomAppId) return;
-            var userIsPermitted;
 
-            if (config.intercomAllowVisitors) {
-                loadIntercomWidget();
+            binarta.checkpoint.profile.eventRegistry.observe({
+                signedin: onSignedIn,
+                signedout: onSignedOut
+            });
+
+            function onSignedIn() {
+                shutdownIntercom();
+                if (isAllowedForVisitors() || isPermitted()) loadIntercomWidget();
             }
-            else {
-                activeUserHasPermission({
-                    yes: loadIntercomWidget,
-                    no: function () {
-                        userIsPermitted = false;
-                    },
-                    scope: $rootScope
-                }, 'edit.mode');
+
+            function onSignedOut() {
+                shutdownIntercom();
+                if (isAllowedForVisitors()) loadIntercomWidget();
             }
+
+            if (isAllowedForVisitors() || isPermitted()) loadIntercomWidget();
+
 
             function loadIntercomWidget() {
-                userIsPermitted = true;
-                resourceLoader.addScript('https://widget.intercom.io/widget/' + config.intercomAppId);
-
-                function checkIfIntercomIsAvailable() {
-                    if (typeof $window.Intercom != 'undefined') {
-                        intercomIsAvailable();
-                    } else {
-                        $timeout(checkIfIntercomIsAvailable, 100);
-                    }
-                }
-
-                checkIfIntercomIsAvailable();
-            }
-
-            function intercomIsAvailable() {
-                fetchAccountMetadata({
-                    ok: function (metadata) {
-                        if (userIsPermitted) bootIntercom(metadata);
-                    },
-                    unauthorized: function () {
-                        shutdownIntercom();
-                        if (config.intercomAllowVisitors) bootIntercomForVisitors();
-                    },
-                    scope: $rootScope
+                resourceLoader.getScript('https://widget.intercom.io/widget/' + config.intercomAppId).then(function () {
+                    binarta.checkpoint.profile.authenticated ? bootIntercom() : bootIntercomForVisitors();
                 });
             }
 
-            function bootIntercom(metadata) {
-                shutdownIntercom();
+            function isPermitted() {
+                return binarta.checkpoint.profile.hasPermission('edit.mode');
+            }
+
+            function isAllowedForVisitors() {
+                return config.intercomAllowVisitors;
+            }
+
+            function bootIntercom() {
+                var metadata = binarta.checkpoint.profile.metadata();
                 $window.Intercom("boot", {
                     app_id: config.intercomAppId,
                     email: metadata.email,
@@ -75,7 +63,7 @@
             }
 
             function shutdownIntercom() {
-                $window.Intercom("shutdown");
+                if ($window.Intercom) $window.Intercom("shutdown");
             }
 
             function getCompanyUrl() {

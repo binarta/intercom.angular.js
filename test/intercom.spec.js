@@ -1,34 +1,49 @@
 describe('intercom', function () {
     beforeEach(module('intercom'));
 
-    var config, resourceLoader, intercomRunner, $timeout, $window, intercom, fetchAccountMetadata, activeUserHasPermission;
+    var $rootScope, sut, config, resourceLoader, $window, intercomMock, binarta, getScriptDeferred;
 
-    beforeEach(inject(function (_config_, _resourceLoader_, _intercomRunner_, _$timeout_, _$window_, _fetchAccountMetadata_, _activeUserHasPermission_) {
+    beforeEach(inject(function (_$rootScope_, $q, intercom, _config_, _resourceLoader_, _$window_, _binarta_) {
+        $rootScope = _$rootScope_;
+        sut = intercom;
         config = _config_;
         resourceLoader = _resourceLoader_;
-        intercomRunner = _intercomRunner_;
-        $timeout = _$timeout_;
         $window = _$window_;
-        fetchAccountMetadata = _fetchAccountMetadata_;
-        activeUserHasPermission = _activeUserHasPermission_;
-
+        binarta = _binarta_;
         config.namespace = 'namespace';
-
-        intercom = jasmine.createSpy('Intercom');
+        intercomMock = jasmine.createSpy('Intercom');
+        getScriptDeferred = $q.defer();
+        resourceLoader.getScript.and.returnValue(getScriptDeferred.promise);
+        $window.Intercom = undefined;
     }));
 
-    it('when no app id is defined, do nothing', function () {
-        intercomRunner.run();
+    function assertIntercomHasBeenBootedInUserMode() {
+        expect(intercomMock).toHaveBeenCalledWith('boot', {
+            app_id: config.intercomAppId,
+            email: 'e',
+            user_id: 'e',
+            company: {
+                id: config.namespace,
+                name: config.namespace,
+                url: 'http://server'
+            },
+            widget: {
+                activator: "#IntercomDefaultWidget"
+            }
+        });
+    }
 
-        expect(activeUserHasPermission).not.toHaveBeenCalled();
+    it('when no app id is defined, do nothing', function () {
+        config.intercomAllowVisitors = true;
+        sut();
+        expect(resourceLoader.getScript).not.toHaveBeenCalled();
     });
 
     it('when app id is empty, do nothing', function () {
         config.intercomAppId = '';
-
-        intercomRunner.run();
-
-        expect(activeUserHasPermission).not.toHaveBeenCalled();
+        config.intercomAllowVisitors = true;
+        sut();
+        expect(resourceLoader.getScript).not.toHaveBeenCalled();
     });
 
     describe('with app id', function () {
@@ -39,58 +54,76 @@ describe('intercom', function () {
         describe('allow visitors to use intercom', function () {
             beforeEach(function () {
                 config.intercomAllowVisitors = true;
-
-                intercomRunner.run();
             });
 
-            it('script is injected', function () {
-                expect(resourceLoader.addScript).toHaveBeenCalledWith('https://widget.intercom.io/widget/' + config.intercomAppId);
-            });
-
-            describe('when Intercom is loaded', function () {
+            describe('and user is not signed in', function () {
                 beforeEach(function () {
-                    $timeout(function () {
-                        $window.Intercom = intercom;
-                    });
-                    $timeout.flush();
+                    sut();
                 });
 
-                describe('and user is unauthorized', function () {
+                it('Intercom script is loaded', function () {
+                    expect(resourceLoader.getScript).toHaveBeenCalledWith('https://widget.intercom.io/widget/' + config.intercomAppId);
+                });
+
+                describe('when script is loaded', function () {
                     beforeEach(function () {
-                        fetchAccountMetadata.calls.first().args[0].unauthorized();
+                        $window.Intercom = intercomMock;
+                        getScriptDeferred.resolve();
+                        $rootScope.$digest();
                     });
 
-                    it('boot Intercom', function () {
-                        expect(intercom).toHaveBeenCalledWith('shutdown');
-                        expect(intercom).toHaveBeenCalledWith('boot', {
+                    it('Intercom is booted in visitor mode', function () {
+                        expect(intercomMock).not.toHaveBeenCalledWith('shutdown');
+                        expect(intercomMock).toHaveBeenCalledWith('boot', {
                             app_id: config.intercomAppId
                         });
                     });
+
+                    describe('and user is signed in', function () {
+                        beforeEach(function () {
+                            intercomMock.calls.reset();
+                            binarta.checkpoint.registrationForm.submit({username: 'u', password: 'p', email: 'e'});
+                            $rootScope.$digest();
+                        });
+
+                        it('Intercom is restarted in user mode', function () {
+                            expect(intercomMock).toHaveBeenCalledWith('shutdown');
+                            assertIntercomHasBeenBootedInUserMode();
+                        });
+                    });
+                });
+            });
+
+            describe('and user is signed in', function () {
+                beforeEach(function () {
+                    binarta.checkpoint.registrationForm.submit({username: 'u', password: 'p', email: 'e'});
+                    sut();
                 });
 
-                describe('and user is authorized', function () {
-                    var metadata = {
-                        email: 'email'
-                    };
-
+                describe('when script is loaded', function () {
                     beforeEach(function () {
-                        fetchAccountMetadata.calls.first().args[0].ok(metadata);
+                        $window.Intercom = intercomMock;
+                        getScriptDeferred.resolve();
+                        $rootScope.$digest();
                     });
 
-                    it('boot Intercom with user', function () {
-                        expect(intercom).toHaveBeenCalledWith('shutdown');
-                        expect(intercom).toHaveBeenCalledWith('boot', {
-                            app_id: config.intercomAppId,
-                            email: metadata.email,
-                            user_id: metadata.email,
-                            company: {
-                                id: config.namespace,
-                                name: config.namespace,
-                                url: 'http://server'
-                            },
-                            widget: {
-                                activator: "#IntercomDefaultWidget"
-                            }
+                    it('Intercom is booted in user mode', function () {
+                        expect(intercomMock).not.toHaveBeenCalledWith('shutdown');
+                        assertIntercomHasBeenBootedInUserMode();
+                    });
+
+                    describe('and user signs out', function () {
+                        beforeEach(function () {
+                            intercomMock.calls.reset();
+                            binarta.checkpoint.profile.signout();
+                            $rootScope.$digest();
+                        });
+
+                        it('Intercom is restarted in visitor mode', function () {
+                            expect(intercomMock).toHaveBeenCalledWith('shutdown');
+                            expect(intercomMock).toHaveBeenCalledWith('boot', {
+                                app_id: config.intercomAppId
+                            });
                         });
                     });
                 });
@@ -99,56 +132,52 @@ describe('intercom', function () {
 
         describe('do not allow visitors to use Intercom', function () {
             beforeEach(function () {
-                intercomRunner.run();
+                binarta.checkpoint.gateway.permissions = [];
             });
 
-            it('active user needs edit.mode permission', function () {
-                expect(activeUserHasPermission.calls.first().args[1]).toEqual('edit.mode');
-            });
-
-            describe('and active user has permission', function () {
+            describe('and user is not signed in', function () {
                 beforeEach(function () {
-                    activeUserHasPermission.calls.first().args[0].yes();
+                    sut();
                 });
 
-                it('script is injected', function () {
-                    expect(resourceLoader.addScript).toHaveBeenCalledWith('https://widget.intercom.io/widget/' + config.intercomAppId);
+                it('Intercom script has not been loaded', function () {
+                    expect(resourceLoader.getScript).not.toHaveBeenCalled();
                 });
 
-                describe('when Intercom is loaded', function () {
+                describe('and user is signed in', function () {
                     beforeEach(function () {
-                        $timeout(function () {
-                            $window.Intercom = intercom;
-                        });
-                        $timeout.flush();
+                        binarta.checkpoint.registrationForm.submit({username: 'u', password: 'p', email: 'e'});
+                        $rootScope.$digest();
                     });
 
-                    describe('and user is unauthorized', function () {
-                        beforeEach(function () {
-                            fetchAccountMetadata.calls.first().args[0].unauthorized();
-                        });
+                    it('Intercom script has not been loaded', function () {
+                        expect(resourceLoader.getScript).not.toHaveBeenCalled();
+                    });
+                });
 
-                        it('Intercom is shut down', function () {
-                            expect(intercom).toHaveBeenCalledWith('shutdown');
-                            expect(intercom).not.toHaveBeenCalledWith('boot');
-                        });
+                describe('and user has the edit.mode permission', function () {
+                    beforeEach(function () {
+                        binarta.checkpoint.gateway.addPermission('edit.mode');
                     });
 
-                    describe('and user is authorized', function () {
-                        var metadata = {
-                            email: 'email'
-                        };
-
+                    describe('and user is signed in', function () {
                         beforeEach(function () {
-                            fetchAccountMetadata.calls.first().args[0].ok(metadata);
+                            binarta.checkpoint.registrationForm.submit({username: 'u', password: 'p', email: 'e'});
+                            $window.Intercom = intercomMock;
+                            getScriptDeferred.resolve();
+                            $rootScope.$digest();
                         });
 
-                        it('boot Intercom with user', function () {
-                            expect(intercom).toHaveBeenCalledWith('shutdown');
-                            expect(intercom).toHaveBeenCalledWith('boot', {
+                        it('Intercom script is loaded', function () {
+                            expect(resourceLoader.getScript).toHaveBeenCalledWith('https://widget.intercom.io/widget/' + config.intercomAppId);
+                        });
+
+                        it('Intercom is booted in user mode', function () {
+                            expect(intercomMock).not.toHaveBeenCalledWith('shutdown');
+                            expect(intercomMock).toHaveBeenCalledWith('boot', {
                                 app_id: config.intercomAppId,
-                                email: metadata.email,
-                                user_id: metadata.email,
+                                email: 'e',
+                                user_id: 'e',
                                 company: {
                                     id: config.namespace,
                                     name: config.namespace,
@@ -160,15 +189,50 @@ describe('intercom', function () {
                             });
                         });
                     });
+                });
+            });
 
-                    describe('and somehow user loses permission (e.g. clerk logs out and logs in with other user in same session)', function () {
+            describe('and user is signed in', function () {
+                describe('and user is not permitted', function () {
+                    beforeEach(function () {
+                        binarta.checkpoint.registrationForm.submit({username: 'u', password: 'p', email: 'e'});
+                        sut();
+                    });
+
+                    it('Intercom script has not been loaded', function () {
+                        expect(resourceLoader.getScript).not.toHaveBeenCalled();
+                    });
+                });
+
+                describe('and user is permitted', function () {
+                    beforeEach(function () {
+                        binarta.checkpoint.gateway.addPermission('edit.mode');
+                        binarta.checkpoint.registrationForm.submit({username: 'u', password: 'p', email: 'e'});
+                        sut();
+                        $window.Intercom = intercomMock;
+                        getScriptDeferred.resolve();
+                        $rootScope.$digest();
+                    });
+
+                    it('Intercom script is loaded', function () {
+                        expect(resourceLoader.getScript).toHaveBeenCalledWith('https://widget.intercom.io/widget/' + config.intercomAppId);
+                    });
+
+                    it('Intercom is booted in user mode', function () {
+                        expect(intercomMock).not.toHaveBeenCalledWith('shutdown');
+                        assertIntercomHasBeenBootedInUserMode();
+                    });
+
+                    describe('and user signs out', function () {
                         beforeEach(function () {
-                            activeUserHasPermission.calls.first().args[0].no();
-                            fetchAccountMetadata.calls.first().args[0].ok();
+                            intercomMock.calls.reset();
+                            binarta.checkpoint.profile.signout();
+                            $rootScope.$digest();
                         });
 
-                        it('Intercom is not booted', function () {
-                            expect(intercom).not.toHaveBeenCalledWith('boot');
+                        it('Intercom is restarted in visitor mode', function () {
+                            expect(intercomMock).toHaveBeenCalledWith('shutdown');
+                            expect(intercomMock).not.toHaveBeenCalledWith('boot');
                         });
                     });
                 });

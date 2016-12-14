@@ -1,10 +1,8 @@
 {
   "name": "binarta.intercom.angular",
-  "main": [
-    "./src/intercom.js",
-    "./sources.json"
-  ],
+  "main": "./src/intercom.js",
   "dependencies": {
+    "binartajs-angular1": "1.*.*",
     "binarta.angularx": "0.*.*",
     "binarta.config.angular": "0.*.*"
   },
