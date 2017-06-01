@@ -15,6 +15,9 @@ describe('intercom', function () {
         getScriptDeferred = $q.defer();
         resourceLoader.getScript.and.returnValue(getScriptDeferred.promise);
         $window.Intercom = undefined;
+        window.navigator = {
+            userAgent: 'user agent'
+        };
     }));
 
     function assertIntercomHasBeenBootedInUserMode() {
@@ -54,6 +57,12 @@ describe('intercom', function () {
         describe('allow visitors to use intercom', function () {
             beforeEach(function () {
                 config.intercomAllowVisitors = true;
+            });
+
+            it('when useragent is phantomJS (which is used by prerender), do nothing', function () {
+                window.navigator = {userAgent: 'user agent is PhantomJS'};
+                sut();
+                expect(resourceLoader.getScript).not.toHaveBeenCalled();
             });
 
             describe('and user is not signed in', function () {

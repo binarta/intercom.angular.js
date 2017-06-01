@@ -5,7 +5,7 @@
 
     function IntercomFactory($window, $location, resourceLoader, config, binarta) {
         return function () {
-            if (!config.intercomAppId) return;
+            if (!config.intercomAppId || isPhantomJsUserAgent()) return;
 
             binarta.checkpoint.profile.eventRegistry.observe({
                 signedin: onSignedIn,
@@ -23,7 +23,6 @@
             }
 
             if (isAllowedForVisitors() || isPermitted()) loadIntercomWidget();
-
 
             function loadIntercomWidget() {
                 resourceLoader.getScript('https://widget.intercom.io/widget/' + config.intercomAppId).then(function () {
@@ -68,6 +67,10 @@
 
             function getCompanyUrl() {
                 return $location.protocol() + '://' + $location.host();
+            }
+
+            function isPhantomJsUserAgent() {
+                return navigator.userAgent.toLowerCase().indexOf('phantomjs') !== -1;
             }
         };
     }
